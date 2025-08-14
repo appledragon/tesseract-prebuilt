@@ -10,6 +10,10 @@ on:
         description: 'Release tag name'
         required: false
         default: 'nightly'
+      tesseract_ref:
+        description: 'Tesseract tag/branch to build (e.g. 5.4.0, 5.3.4, main)'
+        required: false
+        default: '5.5.1'
 
 permissions:
   contents: write
@@ -32,8 +36,7 @@ jobs:
         git clone --depth 1 --branch "$TESSERACT_REF" https://github.com/tesseract-ocr/tesseract.git
         # (可选) 拉取子模块，如果未来需要训练工具相关资源，可启用
         # git -C tesseract submodule update --init --recursive
-
-  - name: Install Homebrew and dependencies (x86_64)
+    - name: Install Homebrew and dependencies (x86_64)
       if: matrix.arch == 'x86_64'
       run: |
         # Install Rosetta 2 for x86_64 emulation
@@ -44,13 +47,13 @@ jobs:
           arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         fi
         
-    # Install dependencies using x86_64 Homebrew
-    arch -x86_64 /usr/local/bin/brew install cmake ninja leptonica pkg-config
+        # Install dependencies using x86_64 Homebrew
+        arch -x86_64 /usr/local/bin/brew install cmake ninja leptonica pkg-config
 
-  - name: Install dependencies (arm64)
+    - name: Install dependencies (arm64)
       if: matrix.arch == 'arm64'
       run: |
-    brew install cmake ninja leptonica pkg-config
+        brew install cmake ninja leptonica pkg-config
 
     - name: Set environment for x86_64
       if: matrix.arch == 'x86_64'
