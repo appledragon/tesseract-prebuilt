@@ -83,7 +83,7 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES=x86_64 \
           -DBUILD_TRAINING_TOOLS=OFF \
           -DBUILD_SHARED_LIBS=ON
-        arch -x86_64 /usr/local/bin/ninja tesseract
+  arch -x86_64 /usr/local/bin/ninja tesseract libtesseract
 
     - name: Configure and build Tesseract (arm64)
       if: matrix.arch == 'arm64'
@@ -95,12 +95,16 @@ jobs:
           -DCMAKE_PREFIX_PATH="/opt/homebrew" \
           -DBUILD_TRAINING_TOOLS=OFF \
           -DBUILD_SHARED_LIBS=ON
-        ninja tesseract
+  ninja tesseract libtesseract
 
-    - name: Prepare artifact
+    - name: Prepare artifact (bundle binary + lib)
       run: |
         mkdir -p tesseract-macos-${{ matrix.arch }}
         cp build/bin/tesseract tesseract-macos-${{ matrix.arch }}/
+        # 拷贝动态库 (可能存在版本号后缀)
+        if ls build/lib/libtesseract*.dylib 1> /dev/null 2>&1; then
+          cp build/lib/libtesseract*.dylib tesseract-macos-${{ matrix.arch }}/
+        fi
 
     - name: Archive
       run: |
@@ -140,12 +144,16 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_TRAINING_TOOLS=OFF \
           -DBUILD_SHARED_LIBS=ON
-        ninja tesseract
+  ninja tesseract libtesseract
 
-    - name: Prepare artifact
+    - name: Prepare artifact (bundle binary + lib)
       run: |
         mkdir -p tesseract-linux-x86_64
         cp build/bin/tesseract tesseract-linux-x86_64/
+        # 拷贝共享库 (含版本号符号链接)
+        if ls build/lib/libtesseract.so* 1> /dev/null 2>&1; then
+          cp -P build/lib/libtesseract.so* tesseract-linux-x86_64/
+        fi
 
     - name: Archive
       run: |
@@ -205,7 +213,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=$toolchain `
           -DBUILD_TRAINING_TOOLS=OFF `
           -DBUILD_SHARED_LIBS=ON
-        ninja tesseract
+  ninja tesseract libtesseract
 
     - name: Inspect binary (basic info)
       shell: pwsh
@@ -213,10 +221,13 @@ jobs:
         Write-Host "Listing produced files:"; Get-ChildItem build/bin
         Get-Item build/bin/tesseract.exe | Format-List Name, Length, LastWriteTime
 
-    - name: Prepare artifact
+    - name: Prepare artifact (bundle binary + lib)
       run: |
         mkdir tesseract-windows-${{ matrix.arch }}
         copy build\bin\tesseract.exe tesseract-windows-${{ matrix.arch }}\
+        REM 复制 DLL & import lib（如果存在）
+        if exist build\bin\tesseract.dll copy build\bin\tesseract.dll tesseract-windows-${{ matrix.arch }}\
+        if exist build\lib\tesseract.lib copy build\lib\tesseract.lib tesseract-windows-${{ matrix.arch }}\
       shell: cmd
 
     - name: Archive
@@ -259,7 +270,9 @@ jobs:
           平台: macOS (arm64/x86_64)、Windows (x64/x86)、Linux (x86_64)。
 
           默认构建选项: 关闭训练工具 (BUILD_TRAINING_TOOLS=OFF)，动态链接依赖库。
-          可通过 workflow_dispatch 输入 tesseract_ref 指定版本 (默认 5.4.0)。
+          可通过 workflow_dispatch 输入 tesseract_ref 指定版本 (默认 5.5.1)。
+
+          已同时打包可供开发者链接的 libtesseract (动态库)。
 
           构建 commit: ${{ github.sha }}
         files: release-assets/*
