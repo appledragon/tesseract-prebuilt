@@ -25,145 +25,127 @@ jobs:
       matrix:
         arch: [x86_64, arm64]
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-    - name: Clone Tesseract source code
-      run: |
-        TESSERACT_REF="${{ github.event.inputs.tesseract_ref || '5.4.0' }}"
-        echo "Using Tesseract ref: $TESSERACT_REF"
-        git clone --depth 1 --branch "$TESSERACT_REF" https://github.com/tesseract-ocr/tesseract.git
-        # (可选) 拉取子模块，如果未来需要训练工具相关资源，可启用
-        # git -C tesseract submodule update --init --recursive
-    - name: Install Homebrew and dependencies (x86_64)
-      if: matrix.arch == 'x86_64'
-      run: |
-        # Install Rosetta 2 for x86_64 emulation
-        sudo softwareupdate --install-rosetta --agree-to-license
-        
-        # Install x86_64 Homebrew if it doesn't exist
-        if [ ! -f /usr/local/bin/brew ]; then
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        fi
-        
-        # Install dependencies using x86_64 Homebrew
-        arch -x86_64 /usr/local/bin/brew install cmake ninja leptonica pkg-config
-
-    - name: Install dependencies (arm64)
-      if: matrix.arch == 'arm64'
-      run: |
-        brew install cmake ninja leptonica pkg-config
-
-    - name: Set environment for x86_64
-      if: matrix.arch == 'x86_64'
-      run: |
-        echo "CMAKE_PREFIX_PATH=/usr/local" >> $GITHUB_ENV
-        echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/usr/local/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/usr/local/include" >> $GITHUB_ENV
-
-    - name: Set environment for arm64
-      if: matrix.arch == 'arm64'
-      run: |
-        echo "CMAKE_PREFIX_PATH=/opt/homebrew" >> $GITHUB_ENV
-        echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
-
-    - name: Configure and build Tesseract (x86_64)
-      if: matrix.arch == 'x86_64'
-      run: |
-        export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        export CMAKE_PREFIX_PATH="/usr/local"
-        export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
-        mkdir build && cd build
-        arch -x86_64 /usr/local/bin/cmake -G Ninja ../tesseract \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-          -DBUILD_TRAINING_TOOLS=OFF \
-          -DBUILD_SHARED_LIBS=ON
-  arch -x86_64 /usr/local/bin/ninja tesseract libtesseract
-
-    - name: Configure and build Tesseract (arm64)
-      if: matrix.arch == 'arm64'
-      run: |
-        mkdir build && cd build
-        cmake -G Ninja ../tesseract \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_OSX_ARCHITECTURES=arm64 \
-          -DCMAKE_PREFIX_PATH="/opt/homebrew" \
-          -DBUILD_TRAINING_TOOLS=OFF \
-          -DBUILD_SHARED_LIBS=ON
-  ninja tesseract libtesseract
-
-    - name: Prepare artifact (bundle binary + lib)
-      run: |
-        mkdir -p tesseract-macos-${{ matrix.arch }}
-        cp build/bin/tesseract tesseract-macos-${{ matrix.arch }}/
-        # 拷贝动态库 (可能存在版本号后缀)
-        if ls build/lib/libtesseract*.dylib 1> /dev/null 2>&1; then
-          cp build/lib/libtesseract*.dylib tesseract-macos-${{ matrix.arch }}/
-        fi
-
-    - name: Archive
-      run: |
-        tar -czf tesseract-macos-${{ matrix.arch }}.tar.gz tesseract-macos-${{ matrix.arch }}/
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: tesseract-macos-${{ matrix.arch }}
-        path: tesseract-macos-${{ matrix.arch }}.tar.gz
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Clone Tesseract source code
+        run: |
+          TESSERACT_REF="${{ github.event.inputs.tesseract_ref || '5.5.1' }}"
+          echo "Using Tesseract ref: $TESSERACT_REF"
+          git clone --depth 1 --branch "$TESSERACT_REF" https://github.com/tesseract-ocr/tesseract.git
+          # (可选) 拉取子模块，如果未来需要训练工具相关资源，可启用
+          # git -C tesseract submodule update --init --recursive
+      - name: Install Homebrew and dependencies (x86_64)
+        if: matrix.arch == 'x86_64'
+        run: |
+          # Install Rosetta 2 for x86_64 emulation
+          sudo softwareupdate --install-rosetta --agree-to-license
+          # Install x86_64 Homebrew if it doesn't exist
+          if [ ! -f /usr/local/bin/brew ]; then
+            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          # Install dependencies using x86_64 Homebrew
+          arch -x86_64 /usr/local/bin/brew install cmake ninja leptonica pkg-config
+      - name: Install dependencies (arm64)
+        if: matrix.arch == 'arm64'
+        run: |
+          brew install cmake ninja leptonica pkg-config
+      - name: Set environment for x86_64
+        if: matrix.arch == 'x86_64'
+        run: |
+          echo "CMAKE_PREFIX_PATH=/usr/local" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/usr/local/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I/usr/local/include" >> $GITHUB_ENV
+      - name: Set environment for arm64
+        if: matrix.arch == 'arm64'
+        run: |
+          echo "CMAKE_PREFIX_PATH=/opt/homebrew" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
+      - name: Configure and build Tesseract (x86_64)
+        if: matrix.arch == 'x86_64'
+        run: |
+          export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          export CMAKE_PREFIX_PATH="/usr/local"
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+          mkdir build && cd build
+          arch -x86_64 /usr/local/bin/cmake -G Ninja ../tesseract \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DBUILD_TRAINING_TOOLS=OFF \
+            -DBUILD_SHARED_LIBS=ON
+          arch -x86_64 /usr/local/bin/ninja tesseract libtesseract
+      - name: Configure and build Tesseract (arm64)
+        if: matrix.arch == 'arm64'
+        run: |
+          mkdir build && cd build
+          cmake -G Ninja ../tesseract \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_PREFIX_PATH="/opt/homebrew" \
+            -DBUILD_TRAINING_TOOLS=OFF \
+            -DBUILD_SHARED_LIBS=ON
+          ninja tesseract libtesseract
+      - name: Prepare artifact (bundle binary + lib)
+        run: |
+          mkdir -p tesseract-macos-${{ matrix.arch }}
+          cp build/bin/tesseract tesseract-macos-${{ matrix.arch }}/
+          if ls build/lib/libtesseract*.dylib 1> /dev/null 2>&1; then
+            cp build/lib/libtesseract*.dylib tesseract-macos-${{ matrix.arch }}/
+          fi
+      - name: Archive
+        run: |
+          tar -czf tesseract-macos-${{ matrix.arch }}.tar.gz tesseract-macos-${{ matrix.arch }}/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesseract-macos-${{ matrix.arch }}
+          path: tesseract-macos-${{ matrix.arch }}.tar.gz
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-    - name: Clone Tesseract source code
-      run: |
-        TESSERACT_REF="${{ github.event.inputs.tesseract_ref || '5.4.0' }}"
-        echo "Using Tesseract ref: $TESSERACT_REF"
-        git clone --depth 1 --branch "$TESSERACT_REF" https://github.com/tesseract-ocr/tesseract.git
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        # 基础构建工具 & Leptonica 及其依赖
-        sudo apt-get install -y cmake ninja-build build-essential pkg-config \
-          libleptonica-dev libpng-dev libjpeg-dev libtiff-dev zlib1g-dev \
-          libwebp-dev libopenjp2-7-dev libgif-dev libicu-dev
-
-    - name: Configure and build Tesseract
-      run: |
-        mkdir build && cd build
-        cmake -G Ninja ../tesseract \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TRAINING_TOOLS=OFF \
-          -DBUILD_SHARED_LIBS=ON
-  ninja tesseract libtesseract
-
-    - name: Prepare artifact (bundle binary + lib)
-      run: |
-        mkdir -p tesseract-linux-x86_64
-        cp build/bin/tesseract tesseract-linux-x86_64/
-        # 拷贝共享库 (含版本号符号链接)
-        if ls build/lib/libtesseract.so* 1> /dev/null 2>&1; then
-          cp -P build/lib/libtesseract.so* tesseract-linux-x86_64/
-        fi
-
-    - name: Archive
-      run: |
-        tar -czf tesseract-linux-x86_64.tar.gz tesseract-linux-x86_64/
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: tesseract-linux-x86_64
-        path: tesseract-linux-x86_64.tar.gz
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Clone Tesseract source code
+        run: |
+          TESSERACT_REF="${{ github.event.inputs.tesseract_ref || '5.5.1' }}"
+          echo "Using Tesseract ref: $TESSERACT_REF"
+          git clone --depth 1 --branch "$TESSERACT_REF" https://github.com/tesseract-ocr/tesseract.git
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential pkg-config \
+            libleptonica-dev libpng-dev libjpeg-dev libtiff-dev zlib1g-dev \
+            libwebp-dev libopenjp2-7-dev libgif-dev libicu-dev
+      - name: Configure and build Tesseract
+        run: |
+          mkdir build && cd build
+          cmake -G Ninja ../tesseract \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TRAINING_TOOLS=OFF \
+            -DBUILD_SHARED_LIBS=ON
+          ninja tesseract libtesseract
+      - name: Prepare artifact (bundle binary + lib)
+        run: |
+          mkdir -p tesseract-linux-x86_64
+          cp build/bin/tesseract tesseract-linux-x86_64/
+          if ls build/lib/libtesseract.so* 1> /dev/null 2>&1; then
+            cp -P build/lib/libtesseract.so* tesseract-linux-x86_64/
+          fi
+      - name: Archive
+        run: |
+          tar -czf tesseract-linux-x86_64.tar.gz tesseract-linux-x86_64/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesseract-linux-x86_64
+          path: tesseract-linux-x86_64.tar.gz
 
   build-windows:
     runs-on: windows-2022
@@ -171,75 +153,66 @@ jobs:
       matrix:
         arch: [x64, x86]
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-    - name: Clone Tesseract source code
-      run: |
-        $ref = if ('${{ github.event.inputs.tesseract_ref }}' -ne '') { '${{ github.event.inputs.tesseract_ref }}' } else { '5.4.0' }
-        Write-Host "Using Tesseract ref: $ref"
-        git clone --depth 1 --branch $ref https://github.com/tesseract-ocr/tesseract.git
-      shell: pwsh
-
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v1.3
-
-    - name: Install build tools
-      run: choco install -y cmake ninja git
-
-    - name: Setup vcpkg & leptonica dependency
-      shell: pwsh
-      run: |
-        if (!(Test-Path vcpkg)) {
-          git clone https://github.com/microsoft/vcpkg.git
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-        }
-        if ('${{ matrix.arch }}' -eq 'x64') {
-          .\vcpkg\vcpkg install leptonica:x64-windows
-        } else {
-          .\vcpkg\vcpkg install leptonica:x86-windows
-        }
-
-    - name: Configure and build Tesseract
-      shell: pwsh
-      run: |
-        mkdir build
-        cd build
-        $toolchain = Join-Path $PWD "..\vcpkg\scripts\buildsystems\vcpkg.cmake"
-        $arch = '${{ matrix.arch }}'
-        cmake -G "Ninja" ../tesseract `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE=$toolchain `
-          -DBUILD_TRAINING_TOOLS=OFF `
-          -DBUILD_SHARED_LIBS=ON
-  ninja tesseract libtesseract
-
-    - name: Inspect binary (basic info)
-      shell: pwsh
-      run: |
-        Write-Host "Listing produced files:"; Get-ChildItem build/bin
-        Get-Item build/bin/tesseract.exe | Format-List Name, Length, LastWriteTime
-
-    - name: Prepare artifact (bundle binary + lib)
-      run: |
-        mkdir tesseract-windows-${{ matrix.arch }}
-        copy build\bin\tesseract.exe tesseract-windows-${{ matrix.arch }}\
-        REM 复制 DLL & import lib（如果存在）
-        if exist build\bin\tesseract.dll copy build\bin\tesseract.dll tesseract-windows-${{ matrix.arch }}\
-        if exist build\lib\tesseract.lib copy build\lib\tesseract.lib tesseract-windows-${{ matrix.arch }}\
-      shell: cmd
-
-    - name: Archive
-      run: |
-        Compress-Archive -Path tesseract-windows-${{ matrix.arch }}\* -DestinationPath tesseract-windows-${{ matrix.arch }}.zip
-      shell: pwsh
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: tesseract-windows-${{ matrix.arch }}
-        path: tesseract-windows-${{ matrix.arch }}.zip
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Clone Tesseract source code
+        shell: pwsh
+        run: |
+          $ref = if ('${{ github.event.inputs.tesseract_ref }}' -ne '') { '${{ github.event.inputs.tesseract_ref }}' } else { '5.5.1' }
+          Write-Host "Using Tesseract ref: $ref"
+          git clone --depth 1 --branch $ref https://github.com/tesseract-ocr/tesseract.git
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v1.3
+      - name: Install build tools
+        run: choco install -y cmake ninja git
+      - name: Setup vcpkg & leptonica dependency
+        shell: pwsh
+        run: |
+          if (!(Test-Path vcpkg)) {
+            git clone https://github.com/microsoft/vcpkg.git
+            .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          }
+          if ('${{ matrix.arch }}' -eq 'x64') {
+            .\vcpkg\vcpkg install leptonica:x64-windows
+          } else {
+            .\vcpkg\vcpkg install leptonica:x86-windows
+          }
+      - name: Configure and build Tesseract
+        shell: pwsh
+        run: |
+          mkdir build
+          cd build
+          $toolchain = Join-Path $PWD "..\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          $arch = '${{ matrix.arch }}'
+          cmake -G "Ninja" ../tesseract `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE=$toolchain `
+            -DBUILD_TRAINING_TOOLS=OFF `
+            -DBUILD_SHARED_LIBS=ON
+          ninja tesseract libtesseract
+      - name: Inspect binary (basic info)
+        shell: pwsh
+        run: |
+          Write-Host "Listing produced files:"; Get-ChildItem build/bin
+          Get-Item build/bin/tesseract.exe | Format-List Name, Length, LastWriteTime
+      - name: Prepare artifact (bundle binary + lib)
+        shell: cmd
+        run: |
+          mkdir tesseract-windows-${{ matrix.arch }}
+          copy build\bin\tesseract.exe tesseract-windows-${{ matrix.arch }}\
+          if exist build\bin\tesseract.dll copy build\bin\tesseract.dll tesseract-windows-${{ matrix.arch }}\
+          if exist build\lib\tesseract.lib copy build\lib\tesseract.lib tesseract-windows-${{ matrix.arch }}\
+      - name: Archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path tesseract-windows-${{ matrix.arch }}\* -DestinationPath tesseract-windows-${{ matrix.arch }}.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesseract-windows-${{ matrix.arch }}
+          path: tesseract-windows-${{ matrix.arch }}.zip
 
   create-release:
     needs: [build-macos, build-linux, build-windows]
